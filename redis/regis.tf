@@ -22,3 +22,21 @@ resource "aws_elasticache_subnet_group" "this" {
   name       = var.name
   subnet_ids = var.subnet_ids
 }
+
+locals {
+  cmd =<<EOS
+    jq -n --arg a "$(
+      aws elasticache describe-cache-clusters \
+        --show-cache-node-info \
+        --query='CacheClusters[?ReplicationGroupId==`${aws_elasticache_replication_group.this.id}`].CacheNodes[].Endpoint.join(`:`, [Address,to_string(Port)]) | sort(@)'
+    )" '{"a":$a}'
+  EOS
+}
+
+data "external" "node_endpoints" {
+  program = ["sh", "-c", local.cmd]
+}
+
+output "node_endpoints" {
+  value = jsondecode(data.external.node_endpoints.result.a)
+}
