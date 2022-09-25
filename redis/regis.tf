@@ -37,6 +37,16 @@ data "external" "node_endpoints" {
   program = ["sh", "-c", local.cmd]
 }
 
+# output "node_endpoints" {
+#   value = jsondecode(data.external.node_endpoints.result.a)
+# }
+
+data "aws_elasticache_cluster" "this" {
+  for_each = toset(aws_elasticache_replication_group.this.member_clusters)
+  cluster_id = each.value
+}
+
 output "node_endpoints" {
-  value = jsondecode(data.external.node_endpoints.result.a)
+  #value = jsondecode(data.external.node_endpoints.result.a)
+  value = sort(flatten([for c in data.aws_elasticache_cluster.this : [for n in c.cache_nodes : "${n.address}:${n.port}"]]))
 }
