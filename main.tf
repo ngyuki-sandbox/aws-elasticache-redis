@@ -107,7 +107,3 @@ module "redis" {
   subnet_ids         = module.vpc.public_subnets
   security_group_ids = [aws_security_group.redis.id]
 }
-
-output "redis_node_endpoints" {
-  value = module.redis.node_endpoints
-}

@@ -1,52 +1,58 @@
 
-resource "aws_elasticache_replication_group" "this" {
-  description          = var.name
-  replication_group_id = var.name
+resource "aws_elasticache_subnet_group" "this" {
+  name       = var.name
+  subnet_ids = var.subnet_ids
+}
+
+resource "aws_elasticache_replication_group" "redis22" {
+  description          = "redis22"
+  replication_group_id = "redis22"
   node_type            = "cache.t3.micro"
-  parameter_group_name = "default.redis6.x.cluster.on"
   engine               = "redis"
   engine_version       = "6.2"
   port                 = 6379
   subnet_group_name    = aws_elasticache_subnet_group.this.name
   security_group_ids   = var.security_group_ids
+  apply_immediately    = true
 
   multi_az_enabled           = true
   automatic_failover_enabled = true
   num_node_groups            = 2
   replicas_per_node_group    = 1
 
-  apply_immediately = true
 }
 
-resource "aws_elasticache_subnet_group" "this" {
-  name       = var.name
-  subnet_ids = var.subnet_ids
+resource "aws_elasticache_replication_group" "redis11" {
+  description          = "redis11"
+  replication_group_id = "redis11"
+  node_type            = "cache.t3.micro"
+  engine               = "redis"
+  engine_version       = "6.2"
+  port                 = 6379
+  subnet_group_name    = aws_elasticache_subnet_group.this.name
+  security_group_ids   = var.security_group_ids
+  apply_immediately    = true
+
+  multi_az_enabled           = true
+  automatic_failover_enabled = true
+  replicas_per_node_group    = 1
+
 }
 
-locals {
-  cmd =<<EOS
-    jq -n --arg a "$(
-      aws elasticache describe-cache-clusters \
-        --show-cache-node-info \
-        --query='CacheClusters[?ReplicationGroupId==`${aws_elasticache_replication_group.this.id}`].CacheNodes[].Endpoint.join(`:`, [Address,to_string(Port)]) | sort(@)'
-    )" '{"a":$a}'
-  EOS
-}
 
-data "external" "node_endpoints" {
-  program = ["sh", "-c", local.cmd]
-}
+resource "aws_elasticache_replication_group" "redis02" {
+  description          = "redis02"
+  replication_group_id = "redis02"
+  node_type            = "cache.t3.micro"
+  engine               = "redis"
+  engine_version       = "6.2"
+  port                 = 6379
+  subnet_group_name    = aws_elasticache_subnet_group.this.name
+  security_group_ids   = var.security_group_ids
+  apply_immediately    = true
 
-# output "node_endpoints" {
-#   value = jsondecode(data.external.node_endpoints.result.a)
-# }
+  multi_az_enabled           = true
+  automatic_failover_enabled = true
+  num_cache_clusters         = 2
 
-data "aws_elasticache_cluster" "this" {
-  for_each = toset(aws_elasticache_replication_group.this.member_clusters)
-  cluster_id = each.value
-}
-
-output "node_endpoints" {
-  #value = jsondecode(data.external.node_endpoints.result.a)
-  value = sort(flatten([for c in data.aws_elasticache_cluster.this : [for n in c.cache_nodes : "${n.address}:${n.port}"]]))
 }
